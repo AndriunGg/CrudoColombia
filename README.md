@@ -43,6 +43,7 @@ crudo-colombia-dashboard/
 ├── README.md
 └── .gitignore
 ```
+---
 ## Proceso de Limpieza Realizado
 
 Se realizó un **ETL completo y robusto** para garantizar la calidad, consistencia y utilidad de los datos. Las principales etapas de limpieza fueron las siguientes:
@@ -80,7 +81,7 @@ Se realizó un **ETL completo y robusto** para garantizar la calidad, consistenc
 - Conversión del formato ancho (una columna por mes) a formato largo (una fila por mes y valor)
 - Creación de las columnas `MES` y `PRODUCCION`
 
-
+---
 
 ## Cómo ejecutarlo localmente
 
