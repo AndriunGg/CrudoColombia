@@ -10,8 +10,8 @@ from pathlib import Path
 
 # ===================== CONFIGURACIÓN =====================
 # Rutas relativas (funciona tanto en local como en VS Code)
-RAW_DATA_PATH = Path('../data')
-PROCESSED_DATA_PATH = Path("../data_processed")
+RAW_DATA_PATH = Path('./data')
+PROCESSED_DATA_PATH = Path("./data_processed")
 PROCESSED_DATA_PATH.mkdir(parents=True, exist_ok=True)
 
 OUTPUT_FILE = PROCESSED_DATA_PATH / "crudo_limpio.parquet"
@@ -148,5 +148,5 @@ df_total['OPERADORA'] = df_total['OPERADORA'].apply(limpiar_tildes)
 print(f"\n¡Proceso completado! DataFrame final: {df_total.shape[0]:,} filas × {df_total.shape[1]} columnas")
 
 # ===================== 6. GUARDAR =====================
-df_total.to_parquet('../data_processed/crudo_limpio.parquet', index=False)
-print(f"Archivo guardado en: ../data_processed/crudo_limpio.parquet")
+df_total.to_parquet('./data_processed/crudo_limpio.parquet', index=False)
+print(f"Archivo guardado en: ./data_processed/crudo_limpio.parquet")
