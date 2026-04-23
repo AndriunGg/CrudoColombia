@@ -13,7 +13,7 @@ st.set_page_config(
 
 @st.cache_data
 def load_data():
-    return pd.read_parquet("../data_processed/crudo_limpio.parquet")
+    return pd.read_parquet("./data_processed/crudo_limpio.parquet")
 
 df = load_data()
 
