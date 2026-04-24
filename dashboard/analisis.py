@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import requests
+import json
+from prophet import Prophet
 
 # ===================== CONFIG =====================
 st.set_page_config(
@@ -16,6 +19,27 @@ def load_data():
     return pd.read_parquet("./data_processed/crudo_limpio.parquet")
 
 df = load_data()
+
+@st.cache_resource
+def get_prophet_nacional():
+    nacional_hist = df.groupby(['AÑO', 'MES'])['PRODUCCION'].sum().reset_index()
+    nacional_hist['Fecha'] = pd.to_datetime(nacional_hist['AÑO'].astype(str) + '-' + nacional_hist['MES'].map(meses_dict))
+    nacional_hist = nacional_hist.groupby('Fecha')['PRODUCCION'].sum().reset_index()
+    nacional_hist = nacional_hist.rename(columns={'Fecha': 'ds', 'PRODUCCION': 'y'})
+    m = Prophet(yearly_seasonality=True, weekly_seasonality=False, daily_seasonality=False)
+    m.fit(nacional_hist)
+    return m
+
+@st.cache_resource
+def get_prophet_departamento(depto_sel):
+    depto_data = df[df['DEPARTAMENTO'] == depto_sel].copy()
+    depto_mensual = depto_data.groupby(['AÑO', 'MES'])['PRODUCCION'].sum().reset_index()
+    depto_mensual['Fecha'] = pd.to_datetime(depto_mensual['AÑO'].astype(str) + '-' + depto_mensual['MES'].map(meses_dict))
+    depto_mensual = depto_mensual.groupby('Fecha')['PRODUCCION'].sum().reset_index()
+    depto_mensual = depto_mensual.rename(columns={'Fecha': 'ds', 'PRODUCCION': 'y'})
+    m = Prophet(yearly_seasonality=True)
+    m.fit(depto_mensual)
+    return m
 
 # ===================== MAPEO DE MESES (para evitar errores de fecha) =====================
 meses_dict = {
@@ -172,10 +196,6 @@ with tab6:
         prod_depto.columns = ['DEPARTAMENTO', 'PRODUCCION']
 
         # === 2. GeoJSON oficial ===
-        import requests
-        import json
-
-        # ONLINE
         geojson_colombia = requests.get(
             "https://gist.githubusercontent.com/john-guerra/43c7656821069d00dcbc/raw/be6a6e239cd5b5b803c6e7c2ec405b793a9064dd/Colombia.geo.json"
         ).json()
@@ -243,17 +263,13 @@ with tab7:
     with pred_tab1:
         st.subheader("Predicción Producción Nacional Colombia")
 
-        # Datos históricos nacionales
+        m = get_prophet_nacional()
         nacional_hist = df.groupby(['AÑO', 'MES'])['PRODUCCION'].sum().reset_index()
         nacional_hist['Fecha'] = pd.to_datetime(nacional_hist['AÑO'].astype(str) + '-' + nacional_hist['MES'].map(meses_dict))
         nacional_hist = nacional_hist.groupby('Fecha')['PRODUCCION'].sum().reset_index()
         nacional_hist = nacional_hist.rename(columns={'Fecha': 'ds', 'PRODUCCION': 'y'})
 
-        from prophet import Prophet
-        m = Prophet(yearly_seasonality=True, weekly_seasonality=False, daily_seasonality=False)
-        m.fit(nacional_hist)
-
-        futuro = m.make_future_dataframe(periods=60, freq='ME')  # 5 años más
+        futuro = m.make_future_dataframe(periods=60, freq='ME')
         forecast = m.predict(futuro)
 
         fig = go.Figure()
@@ -282,8 +298,7 @@ with tab7:
         depto_mensual = depto_mensual.rename(columns={'Fecha': 'ds', 'PRODUCCION': 'y'})
 
         if len(depto_mensual) > 12:
-            m = Prophet(yearly_seasonality=True)
-            m.fit(depto_mensual)
+            m = get_prophet_departamento(depto_sel)
             futuro = m.make_future_dataframe(periods=60, freq='ME')
             forecast = m.predict(futuro)
 
@@ -311,9 +326,21 @@ with tab7:
             if len(data['AÑO'].unique()) >= 3:
                 prod_2020 = data[data['AÑO'] == 2020]['PRODUCCION'].sum()
                 prod_2022 = data[data['AÑO'] == 2022]['PRODUCCION'].sum()
-                if prod_2020 > 100000:  # evitar división por cero
+                if prod_2020 > 100000:
                     tasa = (prod_2022 - prod_2020) / prod_2020 * 100
                     declinacion.append({'CAMPO': campo, 'Tasa': tasa, '2020': prod_2020, '2022': prod_2022})
+
+        decl_df = pd.DataFrame(declinacion).sort_values('Tasa')
+        top_declino = decl_df.head(15)
+
+        if len(top_declino) > 0:
+            fig = px.bar(top_declino, x='Tasa', y='CAMPO', orientation='h',
+                         title="Top 15 campos que más están declinando (2020–2022)",
+                         color='Tasa', color_continuous_scale='Reds')
+            st.plotly_chart(fig, width='stretch')
+            st.dataframe(top_declino.style.format({'Tasa': '{:.1f}%', '2020': '{:,.0f}', '2022': '{:,.0f}'}), height=400)
+        else:
+            st.info("No hay suficientes datos para calcular la declinación.")
 
   
 
